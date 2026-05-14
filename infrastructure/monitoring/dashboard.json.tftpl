@@ -1,0 +1,200 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Requests",
+        "region": "${region}",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "Requests", "DistributionId", "${cloudfront_distribution_id}"]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 6,
+      "y": 0,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Error Rate",
+        "region": "${region}",
+        "stat": "Average",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "4xxErrorRate", "DistributionId", "${cloudfront_distribution_id}", { "color": "#ff7f0e", "label": "4xx Client Errors" }],
+          [".", "5xxErrorRate", ".", ".", { "color": "#d62728", "label": "5xx Server Errors" }]
+        ],
+        "yAxis": { "left": { "min": 0 } },
+        "annotations": {
+          "horizontal": [
+            { "value": 5, "label": "4xx Warning", "color": "#ff7f0e" },
+            { "value": 1, "label": "5xx Critical", "color": "#d62728" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Cache Performance",
+        "region": "${region}",
+        "stat": "Average",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "CacheHitRate", "DistributionId", "${cloudfront_distribution_id}", { "color": "#2ca02c", "label": "Cache Hit Rate" }]
+        ],
+        "yAxis": { "left": { "min": 0, "max": 100 } },
+        "annotations": {
+          "horizontal": [
+            { "value": 80, "label": "Target", "color": "#2ca02c" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 18,
+      "y": 0,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Data Transfer",
+        "region": "${region}",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "BytesDownloaded", "DistributionId", "${cloudfront_distribution_id}"]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Origin Latency",
+        "region": "${region}",
+        "stat": "Average",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "OriginLatency", "DistributionId", "${cloudfront_distribution_id}"]
+        ],
+        "yAxis": { "left": { "min": 0 } },
+        "annotations": {
+          "horizontal": [
+            { "value": 1000, "label": "1s threshold", "color": "#ff7f0e" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 6,
+      "y": 6,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Origin Errors",
+        "region": "${region}",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "OriginStatus4xx", "DistributionId", "${cloudfront_distribution_id}", { "color": "#ff7f0e", "label": "4xx from Origin" }],
+          [".", "OriginStatus5xx", ".", ".", { "color": "#d62728", "label": "5xx from Origin" }]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 6,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - HTTP Methods",
+        "region": "${region}",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "Requests", "DistributionId", "${cloudfront_distribution_id}", "HttpMethod", "GET", { "label": "GET" }],
+          ["...", "HEAD", { "label": "HEAD" }],
+          ["...", "OPTIONS", { "label": "OPTIONS" }],
+          ["...", "POST", { "label": "POST" }]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 18,
+      "y": 6,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Total Error Rate",
+        "region": "${region}",
+        "stat": "Average",
+        "period": 300,
+        "metrics": [
+          [{ "expression": "m1 + m2", "label": "Total Error Rate", "color": "#d62728" }],
+          ["AWS/CloudFront", "4xxErrorRate", "DistributionId", "${cloudfront_distribution_id}", { "id": "m1", "visible": false }],
+          [".", "5xxErrorRate", ".", ".", { "id": "m2", "visible": false }]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 12,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Bytes Uploaded",
+        "region": "${region}",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          ["AWS/CloudFront", "BytesUploaded", "DistributionId", "${cloudfront_distribution_id}"]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 12,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "CloudFront - Cache vs Origin",
+        "region": "${region}",
+        "stat": "Sum",
+        "period": 300,
+        "metrics": [
+          [{ "expression": "m1 * (m2/100)", "label": "Cache Hits", "color": "#2ca02c" }],
+          [{ "expression": "m1 * ((100-m2)/100)", "label": "Origin Requests", "color": "#ff7f0e" }],
+          ["AWS/CloudFront", "Requests", "DistributionId", "${cloudfront_distribution_id}", { "id": "m1", "visible": false }],
+          [".", "CacheHitRate", ".", ".", { "id": "m2", "visible": false }]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    }
+  ]
+}

@@ -1,0 +1,379 @@
+# ============================================================================
+# TERRAFORM PLAN WORKFLOW - Static Website
+# ============================================================================
+# This workflow creates a Terraform execution plan for static website infrastructure.
+# ============================================================================
+
+name: Terraform Plan
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/terraform-plan.yml'
+  
+  pull_request:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'infrastructure/**'
+  
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to plan (dev or prod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  determine-environment:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      aws_role: ${{ steps.set-env.outputs.aws_role }}
+      working_dir: ${{ steps.set-env.outputs.working_dir }}
+    
+    steps:
+      - name: Set Environment Based on Branch
+        id: set-env
+        run: |
+          echo "=========================================="
+          echo "Environment Detection"
+          echo "=========================================="
+          
+          if [ -n "${{ inputs.environment }}" ]; then
+            ENV="${{ inputs.environment }}"
+            echo "Environment from manual input: $ENV"
+          elif [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            ENV="dev"
+            echo "Environment from branch: DEV (dev branch)"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ENV="prod"
+            echo "Environment from branch: PROD (main branch)"
+          else
+            echo "❌ Error: Cannot determine environment"
+            echo "Branch: ${{ github.ref }}"
+            exit 1
+          fi
+          
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          
+          if [ "$ENV" == "dev" ]; then
+            echo "aws_role=${{ vars.DEV_DEPLOY_AWS_ROLE_TO_ASSUME }}" >> $GITHUB_OUTPUT
+            echo "working_dir=infrastructure/environments/dev" >> $GITHUB_OUTPUT
+          else
+            echo "aws_role=${{ vars.PROD_DEPLOY_AWS_ROLE_TO_ASSUME }}" >> $GITHUB_OUTPUT
+            echo "working_dir=infrastructure/environments/prod" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "=========================================="
+          echo "Environment: $ENV"
+          echo "Working Dir: infrastructure/environments/$ENV"
+          echo "=========================================="
+  
+  plan:
+    name: Plan ${{ needs.determine-environment.outputs.environment }} Infrastructure
+    runs-on: ubuntu-latest
+    needs: determine-environment
+    environment: ${{ needs.determine-environment.outputs.environment == 'prod' && 'production' || '' }}
+    
+    outputs:
+      plan_id: ${{ steps.metadata.outputs.plan_id }}
+    
+    env:
+      ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+      AWS_REGION: eu-west-1
+      FEATURE_NAME: static-website
+      WORKING_DIR: ${{ needs.determine-environment.outputs.working_dir }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+      
+      - name: Setup AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install
+          aws --version
+
+      - name: Setup SSH for Private Module Access
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "${{ secrets.TERRAFORM_MODULES_SECRET_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.determine-environment.outputs.aws_role }}
+          role-session-name: github-plan-${{ env.ENVIRONMENT }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+      
+      - name: Verify AWS Account
+        run: |
+          CURRENT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          
+          echo "=========================================="
+          echo "AWS Account Verification"
+          echo "=========================================="
+          echo "Authenticated to AWS Account: $CURRENT_ACCOUNT"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "=========================================="
+      
+      - name: Check Backend Integrity
+        id: backend_check
+        run: |
+          CURRENT_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BACKEND_BUCKET="${FEATURE_NAME}-terraform-backend-${AWS_REGION}-${CURRENT_ACCOUNT_ID}"
+          BACKEND_ALIAS="alias/${FEATURE_NAME}-terraform-state-kms"
+
+          echo "Checking backend bucket: $BACKEND_BUCKET"
+          echo "Checking backend KMS alias: $BACKEND_ALIAS"
+
+          if aws s3api head-bucket --bucket "$BACKEND_BUCKET" 2>/dev/null; then
+            BUCKET_EXISTS=true
+            echo "✅ Backend bucket exists"
+          else
+            BUCKET_EXISTS=false
+            echo "⚠️ Backend bucket not found"
+          fi
+
+          if aws kms describe-key --key-id "$BACKEND_ALIAS" --region "${AWS_REGION}" >/dev/null 2>&1; then
+            ALIAS_EXISTS=true
+            echo "✅ Backend KMS alias exists"
+          else
+            ALIAS_EXISTS=false
+            echo "⚠️ Backend KMS alias not found"
+          fi
+
+          echo "bucket_exists=${BUCKET_EXISTS}" >> $GITHUB_OUTPUT
+          echo "alias_exists=${ALIAS_EXISTS}" >> $GITHUB_OUTPUT
+
+          if [ "$BUCKET_EXISTS" = "true" ] && [ "$ALIAS_EXISTS" = "true" ]; then
+            echo "status=healthy" >> $GITHUB_OUTPUT
+            echo "✅ Backend integrity check passed"
+          elif [ "$BUCKET_EXISTS" = "false" ] && [ "$ALIAS_EXISTS" = "false" ]; then
+            echo "status=missing" >> $GITHUB_OUTPUT
+            echo "⚠️ Backend is fully missing"
+          else
+            echo "status=partial" >> $GITHUB_OUTPUT
+            echo "⚠️ Partial backend detected, bootstrap reconciliation required"
+          fi
+      
+      - name: Ensure Backend Exists
+        if: steps.backend_check.outputs.status != 'healthy'
+        run: |
+          set -euo pipefail
+
+          echo "=========================================="
+          echo "Ensuring Terraform Backend in ${{ env.ENVIRONMENT }} Account"
+          echo "=========================================="
+          echo "Backend status: ${{ steps.backend_check.outputs.status }}"
+
+          CURRENT_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BACKEND_BUCKET="${FEATURE_NAME}-terraform-backend-${AWS_REGION}-${CURRENT_ACCOUNT_ID}"
+          BACKEND_ALIAS="alias/${FEATURE_NAME}-terraform-state-kms"
+
+          cd infrastructure/bootstrap/backend
+
+          cat > create-backend.tfvars << BACKEND_VARS_EOF
+          region = "${{ env.AWS_REGION }}"
+          prefix = "${{ env.FEATURE_NAME }}"
+          BACKEND_VARS_EOF
+          
+          echo "Initializing bootstrap wrapper..."
+          terraform init -input=false
+
+          # Import any surviving backend resources into the temporary local state
+          # so Terraform can reconcile partial bootstrap failures safely.
+          if [ "${{ steps.backend_check.outputs.bucket_exists }}" = "true" ]; then
+            echo "Importing existing S3 backend resources..."
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_s3_bucket.terraform_state "$BACKEND_BUCKET" || true
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_s3_bucket_public_access_block.terraform_state "$BACKEND_BUCKET" || true
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_s3_bucket_versioning.terraform_state "$BACKEND_BUCKET" || true
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_s3_bucket_policy.terraform_state "$BACKEND_BUCKET" || true
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_s3_bucket_server_side_encryption_configuration.terraform_state "$BACKEND_BUCKET" || true
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_s3_bucket_lifecycle_configuration.terraform_state "$BACKEND_BUCKET" || true
+          fi
+
+          if [ "${{ steps.backend_check.outputs.alias_exists }}" = "true" ]; then
+            echo "Importing existing KMS backend resources..."
+            KEY_ID=$(aws kms describe-key --key-id "$BACKEND_ALIAS" --region "${AWS_REGION}" --query 'KeyMetadata.KeyId' --output text)
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_kms_key.terraform_state "$KEY_ID" || true
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_kms_alias.terraform_state "$BACKEND_ALIAS" || true
+            terraform import -input=false -var-file=create-backend.tfvars module.backend.aws_kms_key_policy.terraform_state "$KEY_ID" || true
+          fi
+
+          echo "Reconciling backend resources..."
+          terraform apply -input=false -var-file=create-backend.tfvars -auto-approve
+          
+          rm -f create-backend.tfvars terraform.tfstate*
+          
+          echo "✅ Backend is ready"
+          cd ../../..
+      
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "=========================================="
+          echo "Initializing Terraform"
+          echo "=========================================="
+          
+          CURRENT_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET_NAME="${FEATURE_NAME}-terraform-backend-${AWS_REGION}-${CURRENT_ACCOUNT_ID}"
+          
+          cat > backend.tfbackend << BACKEND_CONFIG_EOF
+          bucket         = "${BUCKET_NAME}"
+          key            = "terraform.tfstate"
+          region         = "${AWS_REGION}"
+          encrypt        = true
+          use_lockfile   = true
+          BACKEND_CONFIG_EOF
+          
+          terraform init -backend-config=backend.tfbackend -input=false
+          
+          rm -f backend.tfbackend
+          
+          echo "✅ Terraform initialized"
+      
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "=========================================="
+          echo "Planning ${{ env.ENVIRONMENT }} Infrastructure"
+          echo "=========================================="
+          
+          terraform plan -out=tfplan -input=false -var-file=terraform.tfvars
+          
+          echo ""
+          echo "Plan Details:"
+          
+          terraform show tfplan
+          
+          echo "✅ Plan generated successfully"
+      
+      - name: Generate Plan Metadata
+        id: metadata
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          CURRENT_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          
+          PLAN_ID="plan-${{ env.ENVIRONMENT }}-${{ github.run_id }}-${{ github.run_number }}"
+          
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          EXPIRES_AT=$(date -u -d '+24 hours' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+24H +"%Y-%m-%dT%H:%M:%SZ")
+          
+          cat > plan-metadata.json << METADATA_EOF
+          {
+            "plan_id": "$PLAN_ID",
+            "environment": "${{ env.ENVIRONMENT }}",
+            "aws_account": "$CURRENT_ACCOUNT_ID",
+            "region": "${{ env.AWS_REGION }}",
+            "timestamp": "$TIMESTAMP",
+            "expires_at": "$EXPIRES_AT",
+            "commit_sha": "${{ github.sha }}",
+            "created_by": "${{ github.actor }}",
+            "applied": false
+          }
+          METADATA_EOF
+          
+          echo "plan_id=$PLAN_ID" >> $GITHUB_OUTPUT
+      
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.ENVIRONMENT }}-${{ github.run_id }}
+          path: |
+            ${{ env.WORKING_DIR }}/tfplan
+            ${{ env.WORKING_DIR }}/plan-metadata.json
+          retention-days: 1
+          if-no-files-found: error
+      
+      - name: Create Plan Summary
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          CURRENT_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          
+          EXPIRES_AT=$(date -u -d '+24 hours' +'%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -v+24H +'%Y-%m-%d %H:%M:%S UTC')
+          
+          cat > plan-summary.md << SUMMARY_EOF
+          ## 📋 Terraform Plan Summary - ${{ env.ENVIRONMENT }} Account
+          
+          **Plan ID:** \`${{ steps.metadata.outputs.plan_id }}\`  
+          **Environment:** ${{ env.ENVIRONMENT }}  
+          **AWS Account:** \`$CURRENT_ACCOUNT_ID\`  
+          **Region:** ${{ env.AWS_REGION }}  
+          **Created:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')  
+          **Expires:** $EXPIRES_AT  
+          **Commit:** \`${{ github.sha }}\`  
+          **Created by:** @${{ github.actor }}  
+          
+          ### 🚀 Next Steps
+          
+          Run the **Terraform Apply** workflow with:
+          - **Environment:** \`${{ env.ENVIRONMENT }}\`
+          - **Plan Run ID:** \`${{ github.run_id }}\`
+          - **Confirmation:** Type \`APPLY\` to confirm
+          
+          ### ⚠️ Important
+          
+          - Plan expires in **24 hours**
+          - Locked to commit \`${{ github.sha }}\`
+          - Can only be applied **once**
+          SUMMARY_EOF
+          
+          cat plan-summary.md
+      
+      - name: Comment PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            const summary = fs.readFileSync('${{ env.WORKING_DIR }}/plan-summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });

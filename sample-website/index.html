@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Stellantis Cloud Adoption - Static Website Blueprint">
+    <title>Static Website Blueprint - Stellantis Cloud Adoption</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav-container">
+            <div class="logo">
+                <span class="logo-icon">🚀</span>
+                <span class="logo-text">Stellantis Cloud</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#home" class="nav-link active">Home</a></li>
+                <li><a href="#architecture" class="nav-link">Architecture</a></li>
+                <li><a href="#features" class="nav-link">Features</a></li>
+                <li><a href="#contact" class="nav-link">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">Static Website Blueprint</h1>
+                <p class="hero-subtitle">Production-ready infrastructure for hosting static websites on AWS</p>
+                <div class="hero-badges">
+                    <span class="badge badge-primary">CloudFront CDN</span>
+                    <span class="badge badge-secondary">S3 Origin</span>
+                    <span class="badge badge-success">SSL/TLS</span>
+                    <span class="badge badge-info">KMS Encrypted</span>
+                </div>
+                <div class="hero-buttons">
+                    <a href="#architecture" class="btn btn-primary">View Architecture</a>
+                    <a href="https://github.com/stla-zad00/terraform-blueprint-adoption-static-website-content" class="btn btn-secondary" target="_blank">GitHub Repository</a>
+                </div>
+            </div>
+        </div>
+        <div class="hero-wave">
+            <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+                <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Status Section -->
+    <section class="status-section">
+        <div class="container">
+            <div class="status-grid">
+                <div class="status-card">
+                    <div class="status-icon">✅</div>
+                    <h3>Infrastructure Status</h3>
+                    <p class="status-value">Deployed</p>
+                    <p class="status-detail">All systems operational</p>
+                </div>
+                <div class="status-card">
+                    <div class="status-icon">🌍</div>
+                    <h3>CDN Status</h3>
+                    <p class="status-value">Active</p>
+                    <p class="status-detail">400+ edge locations</p>
+                </div>
+                <div class="status-card">
+                    <div class="status-icon">🔒</div>
+                    <h3>Security</h3>
+                    <p class="status-value">Enabled</p>
+                    <p class="status-detail">KMS + SSL/TLS</p>
+                </div>
+                <div class="status-card">
+                    <div class="status-icon">⚡</div>
+                    <h3>Performance</h3>
+                    <p class="status-value">Optimized</p>
+                    <p class="status-detail">Global caching</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="section">
+        <div class="container">
+            <h2 class="section-title">Architecture Overview</h2>
+            <p class="section-subtitle">Secure, scalable, and globally distributed static website hosting</p>
+            
+            <div class="architecture-grid">
+                <div class="architecture-card">
+                    <div class="architecture-icon">☁️</div>
+                    <h3>CloudFront CDN</h3>
+                    <p>Global content delivery network with 400+ edge locations for low-latency access worldwide.</p>
+                    <ul class="feature-list">
+                        <li>HTTP/2 & HTTP/3 support</li>
+                        <li>Gzip/Brotli compression</li>
+                        <li>Custom error pages</li>
+                        <li>IPv6 enabled</li>
+                    </ul>
+                </div>
+                
+                <div class="architecture-card">
+                    <div class="architecture-icon">🗄️</div>
+                    <h3>S3 Origin</h3>
+                    <p>Private S3 bucket with Origin Access Control (OAC) for secure content storage.</p>
+                    <ul class="feature-list">
+                        <li>KMS encryption at rest</li>
+                        <li>Versioning enabled</li>
+                        <li>Public access blocked</li>
+                        <li>Lifecycle policies</li>
+                    </ul>
+                </div>
+                
+                <div class="architecture-card">
+                    <div class="architecture-icon">🔐</div>
+                    <h3>SSL/TLS Certificate</h3>
+                    <p>ACM certificate with automatic renewal and DNS validation via Route 53.</p>
+                    <ul class="feature-list">
+                        <li>TLS 1.2+ enforced</li>
+                        <li>Auto-renewal enabled</li>
+                        <li>SNI support</li>
+                        <li>HTTPS redirect</li>
+                    </ul>
+                </div>
+                
+                <div class="architecture-card">
+                    <div class="architecture-icon">🌐</div>
+                    <h3>Route 53 DNS</h3>
+                    <p>Managed DNS service with health checks and automatic failover capabilities.</p>
+                    <ul class="feature-list">
+                        <li>A and AAAA records</li>
+                        <li>Global DNS network</li>
+                        <li>Health monitoring</li>
+                        <li>Low latency routing</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="traffic-flow">
+                <h3>Traffic Flow</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-number">1</div>
+                        <p>User Request</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <div class="flow-number">2</div>
+                        <p>Route 53 DNS</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <div class="flow-number">3</div>
+                        <p>CloudFront Edge</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <div class="flow-number">4</div>
+                        <p>S3 Origin (OAC)</p>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-step">
+                        <div class="flow-number">5</div>
+                        <p>Content Delivered</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="section section-alternate">
+        <div class="container">
+            <h2 class="section-title">Key Features</h2>
+            <p class="section-subtitle">Enterprise-grade features for modern web applications</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Maximum Security</h3>
+                    <p>KMS encryption, OAC, SSL/TLS enforcement, public access blocking, and security headers (HSTS, CSP).</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3>Global Performance</h3>
+                    <p>CloudFront CDN with edge locations worldwide, intelligent caching, and HTTP/3 support.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">💰</div>
+                    <h3>Cost Optimized</h3>
+                    <p>S3 storage, CloudFront caching, lifecycle policies, and configurable price classes.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3>Automated Deployment</h3>
+                    <p>GitHub Actions CI/CD workflows for plan, apply, and destroy operations.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Observable</h3>
+                    <p>CloudWatch logging, CloudFront access logs, and S3 versioning for complete visibility.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">♻️</div>
+                    <h3>Infrastructure as Code</h3>
+                    <p>100% Terraform-managed infrastructure with modular design and reusable components.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Specifications Section -->
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">Technical Specifications</h2>
+            
+            <div class="specs-grid">
+                <div class="spec-group">
+                    <h3>Infrastructure</h3>
+                    <table class="spec-table">
+                        <tr>
+                            <td>Terraform Version</td>
+                            <td><code>&gt;= 1.5.0</code></td>
+                        </tr>
+                        <tr>
+                            <td>AWS Provider</td>
+                            <td><code>~&gt; 5.0</code></td>
+                        </tr>
+                        <tr>
+                            <td>Primary Region</td>
+                            <td><code>eu-west-1</code></td>
+                        </tr>
+                        <tr>
+                            <td>Terraform State Backend</td>
+                            <td>S3 with native lockfile</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="spec-group">
+                    <h3>Security</h3>
+                    <table class="spec-table">
+                        <tr>
+                            <td>Encryption</td>
+                            <td>KMS CMK (at rest)</td>
+                        </tr>
+                        <tr>
+                            <td>SSL/TLS</td>
+                            <td>TLS 1.2+ (SNI)</td>
+                        </tr>
+                        <tr>
+                            <td>S3 Access</td>
+                            <td>OAC (Origin Access Control)</td>
+                        </tr>
+                        <tr>
+                            <td>Key Rotation</td>
+                            <td>Automatic (annual)</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="section section-alternate">
+        <div class="container">
+            <h2 class="section-title">Get Started</h2>
+            <p class="section-subtitle">Deploy your static website with this blueprint</p>
+            
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <h3>📚 Documentation</h3>
+                    <p>Complete documentation available in the repository README, including architecture details, deployment guide, and troubleshooting.</p>
+                    <a href="https://github.com/stla-zad00/terraform-blueprint-adoption-static-website-content" class="btn btn-outline" target="_blank">View Docs</a>
+                </div>
+                
+                <div class="contact-card">
+                    <h3>🛠️ Deploy</h3>
+                    <p>Use GitHub Actions workflows to deploy infrastructure automatically. Plan, review, and apply changes with full audit trails.</p>
+                    <a href="#" class="btn btn-outline">Deployment Guide</a>
+                </div>
+                
+                <div class="contact-card">
+                    <h3>💬 Support</h3>
+                    <p>Need help? Contact the Cloud Adoption Team or consult the internal Stellantis Cloud Platform documentation.</p>
+                    <a href="mailto:ccoe@stellantis.com" class="btn btn-outline">Contact Team</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Stellantis Cloud Adoption</h4>
+                    <p>Static Website Blueprint v1.0.0</p>
+                    <p class="footer-copyright">&copy; 2026 Stellantis. All rights reserved.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul class="footer-links">
+                        <li><a href="https://github.com/stla-zad00/terraform-blueprint-adoption-static-website-content" target="_blank">GitHub Repository</a></li>
+                        <li><a href="#architecture">Architecture</a></li>
+                        <li><a href="#features">Features</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Technologies</h4>
+                    <ul class="footer-links">
+                        <li>Terraform</li>
+                        <li>AWS CloudFront</li>
+                        <li>AWS S3</li>
+                        <li>AWS Route 53</li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Environment</h4>
+                    <p class="env-badge env-dev">Development</p>
+                    <p class="footer-meta">Last deployed: <span id="deploy-date"></span></p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+</html>

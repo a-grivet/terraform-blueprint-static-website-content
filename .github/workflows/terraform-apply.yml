@@ -1,0 +1,215 @@
+# ============================================================================
+# TERRAFORM APPLY WORKFLOW - Static Website
+# ============================================================================
+# This workflow applies a previously generated Terraform plan.
+# Manual trigger only for safety.
+# ============================================================================
+
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to apply (dev or prod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      
+      plan_run_id:
+        description: 'Plan Run ID from the Plan workflow'
+        required: true
+        type: string
+      
+      confirmation:
+        description: 'Type APPLY to confirm'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+jobs:
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    outputs:
+      aws_role: ${{ steps.set-config.outputs.aws_role }}
+      working_dir: ${{ steps.set-config.outputs.working_dir }}
+    
+    steps:
+      - name: Validate Confirmation
+        run: |
+          if [ "${{ inputs.confirmation }}" != "APPLY" ]; then
+            echo "❌ You must type APPLY to confirm"
+            exit 1
+          fi
+          echo "✅ Confirmation validated"
+      
+      - name: Set Environment Configuration
+        id: set-config
+        run: |
+          ENV="${{ inputs.environment }}"
+          
+          if [ "$ENV" == "dev" ]; then
+            echo "aws_role=${{ vars.DEV_DEPLOY_AWS_ROLE_TO_ASSUME }}" >> $GITHUB_OUTPUT
+            echo "working_dir=infrastructure/environments/dev" >> $GITHUB_OUTPUT
+          else
+            echo "aws_role=${{ vars.PROD_DEPLOY_AWS_ROLE_TO_ASSUME }}" >> $GITHUB_OUTPUT
+            echo "working_dir=infrastructure/environments/prod" >> $GITHUB_OUTPUT
+          fi
+  
+  apply:
+    name: Apply ${{ inputs.environment }} Infrastructure
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: ${{ inputs.environment == 'prod' && 'production' || '' }}
+    
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      AWS_REGION: eu-west-1
+      FEATURE_NAME: static-website
+      WORKING_DIR: ${{ needs.validate.outputs.working_dir }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+          terraform_wrapper: false
+      
+      - name: Setup AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install
+          aws --version
+
+      - name: Setup SSH for Private Module Access
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "${{ secrets.TERRAFORM_MODULES_SECRET_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.validate.outputs.aws_role }}
+          role-session-name: github-apply-${{ env.ENVIRONMENT }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+      
+      - name: Verify AWS Identity
+        run: |
+          echo "=========================================="
+          echo "AWS Identity Verification"
+          echo "=========================================="
+          aws sts get-caller-identity
+          echo "=========================================="
+      
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ env.ENVIRONMENT }}-${{ inputs.plan_run_id }}
+          path: ${{ env.WORKING_DIR }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.plan_run_id }}
+      
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "=========================================="
+          echo "Initializing Terraform"
+          echo "=========================================="
+          
+          CURRENT_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET_NAME="${FEATURE_NAME}-terraform-backend-${AWS_REGION}-${CURRENT_ACCOUNT_ID}"
+          
+          cat > backend.tfbackend << BACKEND_CONFIG_EOF
+          bucket         = "${BUCKET_NAME}"
+          key            = "terraform.tfstate"
+          region         = "${AWS_REGION}"
+          encrypt        = true
+          use_lockfile   = true
+          BACKEND_CONFIG_EOF
+          
+          terraform init -backend-config=backend.tfbackend -input=false
+          
+          rm -f backend.tfbackend
+          
+          echo "✅ Terraform initialized"
+      
+      - name: Verify Plan File
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "=========================================="
+          echo "Verifying Plan File"
+          echo "=========================================="
+          
+          if [ ! -f "tfplan" ]; then
+            echo "❌ Plan file not found"
+            echo "This could mean:"
+            echo "  - Wrong plan_run_id provided"
+            echo "  - Plan artifact expired (older than 24 hours)"
+            echo "  - Plan was never created successfully"
+            exit 1
+          fi
+          
+          echo "✅ Plan files verified"
+      
+      - name: Terraform Apply
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "=========================================="
+          echo "Applying Terraform Plan"
+          echo "=========================================="
+          terraform apply -auto-approve tfplan
+      
+      - name: Get Outputs
+        id: outputs
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "=========================================="
+          echo "Infrastructure Outputs"
+          echo "=========================================="
+          terraform output -json > outputs.json
+          cat outputs.json
+      
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-${{ env.ENVIRONMENT }}-${{ github.run_id }}
+          path: ${{ env.WORKING_DIR }}/outputs.json
+          retention-days: 90
+      
+      - name: Apply Summary
+        run: |
+          echo "=========================================="
+          echo "Apply Summary"
+          echo "=========================================="
+          echo "✅ Infrastructure successfully deployed"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "=========================================="
